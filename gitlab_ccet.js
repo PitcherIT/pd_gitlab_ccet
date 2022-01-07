@@ -2,7 +2,8 @@
 Specify for which Action/Status types for certain object_kinds of when to record a change event*/
 const mre_actions = ['merge','reopen']; //Merge Request Events Actions (open, close, reopen, update, approved, unapproved, merge)
 const ie_actions = ['close']; //Issue Events action types (open, close, reopen, update)
-//Deployment status types - tbc
+const de_status = ['success', 'failed']; //Deployment Event Statuses (created, running, success, failed, canceled)
+const pe_status = ['success', 'failed']; // Pipeline Event Statuses (created, waiting_for_resource, preparing, pending, running, success, failed, canceled, skipped, manual, scheduled)
 const re_actions = ['create', 'update']; //Release Events action types (create, update)
 //-------------------------------------------------------------------
 
@@ -96,11 +97,19 @@ switch(webhook.object_kind) {
     });
     break;
   case 'pipeline':
-    summary = '[Pipeline Event - ' + webhook.project.name + '] ' + webhook.object_attributes.status;
-    custom_details.ref= webhook.object_attributes.ref;
-    custom_details.sha= webhook.object_attributes.sha;  
-    custom_details.source= webhook.object_attributes.source;
-    custom_details.status= webhook.object_attributes.status;
+    if(pe_status.indexOf(webhook.object_attributes.status) > -1) {  
+        summary = '[Pipeline ' + webhook.object_attributes.status + ' - ' + webhook.project.name + '] ' + webhook.object_attributes.id + ': ' + webhook.commit.title ;
+        custom_details.ref= webhook.object_attributes.ref;
+        custom_details.sha= webhook.object_attributes.sha;  
+        custom_details.source= webhook.object_attributes.source;
+        custom_details.status= webhook.object_attributes.status;
+        changeEvent.links.push({
+            href: webhook.commit.url,
+            text: 'View Commit on GitLab'
+        });
+    } else {
+        bFail = 1;
+    }
     break;
   case 'build':
     summary = '[Job ' + webhook.build_status + ' - ' + webhook.repository.name + '] ' + webhook.build_name;
@@ -110,15 +119,19 @@ switch(webhook.object_kind) {
     custom_details.build_status= webhook.build_status;
     break;
   case 'deployment':
-    summary = '[Deployment ' + webhook.status + ' - ' + webhook.project.name + '] ' + webhook.commit_title;
-    custom_details.status= webhook.status;
-    custom_details.environment = webhook.environment;  
-    custom_details.deployment_id= webhook.deployment_id;
-    custom_details.commit_title= webhook.commit_title;
-    changeEvent.links.push({
-      href: webhook.commit_url,
-      text: 'View Commit on GitLab'
-    });
+    if(pe_status.indexOf(webhook.status) > -1) {  
+        summary = '[Deployment ' + webhook.status + ' - ' + webhook.project.name + '] ' + webhook.commit_title;
+        custom_details.status= webhook.status;
+        custom_details.environment = webhook.environment;  
+        custom_details.deployment_id= webhook.deployment_id;
+        custom_details.commit_title= webhook.commit_title;
+        changeEvent.links.push({
+        href: webhook.commit_url,
+        text: 'View Commit on GitLab'
+        });
+    } else {
+        bFail = 1;
+    }
     break;
   case 'feature_flag':
     if(webhook.object_attributes.active==true){
@@ -159,7 +172,7 @@ if(webhook.hasOwnProperty('project')){
   custom_details.project_name= webhook.project.name;
   custom_details.project_path= webhook.project.path_with_namespace;
   changeEvent.links.push({
-    href: webhook.project.http_url,
+    href: webhook.project.web_url,
     text: 'View Project on GitLab'
   });
 }
@@ -181,8 +194,6 @@ if(webhook.hasOwnProperty('user')){
 //Exit if forced failure based on previous rules, otherwise submit change event
 if(bFail == 1){
   PD.fail('The action type for this ' + webhook.object_kind + ' object is not in the supported list');
-  //console.log('The action type for this ' + webhook.object_kind + ' object is not in the supported list');
 } else {
   PD.emitChangeEvents([changeEvent]);
-  //console.log(changeEvent);
 }
