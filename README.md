@@ -1,4 +1,4 @@
-# PagerDuty GitLab Custom Change Event Transformer
+# PagerDuty GitLab Custom Change Event Transformer (WIP)
 
 The current GitLab Changes Integration for PagerDuty only handles merge_events webhooks (https://support.pagerduty.com/docs/gitlab-changes).  
 The contents of the gitlab_ccet.js file in this repo can be used to create a custom change event transformer in PagerDuty as an alternative to handle other webhook events from GitLab, including Pushes & Releases etc.
